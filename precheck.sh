@@ -1,60 +1,69 @@
-#!/bin/bash
+# !/bin/bash
 
-# Function to check if WSL is installed
-is_wsl() {
-    if grep -q "Microsoft" /proc/version; then
-        return 0  # WSL is present
+# ANSI escape sequences for colors
+RESET="\033[0m"
+CYAN="\033[36m"
+YELLOW="\033[33m"
+GREEN="\033[32m"
+RED="\033[31m"
+
+# Function to detect the OS and set the package manager accordingly
+detect_package_manager() {
+    if command -v apt &> /dev/null; then
+        PACKAGE_MANAGER="apt"
+    elif command -v dnf &> /dev/null; then
+        PACKAGE_MANAGER="dnf"
+    elif command -v yum &> /dev/null; then
+        PACKAGE_MANAGER="yum"
     else
-        return 1  # Not WSL
-    fi
-}
-
-# Function to install dos2unix if necessary
-install_dos2unix() {
-    if ! command -v dos2unix &> /dev/null; then
-        echo "Installing dos2unix..."
-        sudo apt update && sudo apt install -y dos2unix
-    else
-        echo "dos2unix is already installed."
-    fi
-}
-
-# Check if dos2unix needs to be installed (for Linux)
-if ! command -v dos2unix &> /dev/null; then
-    install_dos2unix
-fi
-
-# Function to check for Linux system
-is_linux() {
-    if [[ "$(uname)" == "Linux" ]]; then
-        return 0  # It's a Linux-based system
-    else
-        return 1  # Not Linux
-    fi
-}
-
-# Function to check for Windows system (via WSL)
-is_windows() {
-    if is_wsl; then
-        return 0  # It's Windows under WSL
-    else
-        return 1  # Not Windows
-    fi
-}
-
-# Main function to decide which installation script to run
-run_installation() {
-    if is_linux; then
-        echo "Linux detected. Running install_linux.sh..."
-        bash install_linux.sh
-    elif is_windows; then
-        echo "Windows (WSL) detected. Running install_windows.sh..."
-        bash install_windows.sh
-    else
-        echo "Unsupported operating system. Exiting."
+        echo -e "${RED}Unsupported package manager. Exiting.${RESET}"
         exit 1
     fi
 }
 
-# Run the installation script based on the OS detection
-run_installation
+# Function to install packages using the appropriate package manager
+install_package() {
+    PACKAGE=$1
+    if [ "$PACKAGE_MANAGER" == "apt" ]; then
+        sudo apt update && sudo apt install -y "$PACKAGE"
+    elif [ "$PACKAGE_MANAGER" == "dnf" ]; then
+        sudo dnf install -y "$PACKAGE"
+    elif [ "$PACKAGE_MANAGER" == "yum" ]; then
+        sudo yum install -y "$PACKAGE"
+    fi
+}
+
+# Function to install dos2unix (Linux only)
+install_dos2unix() {
+    if ! command -v dos2unix &> /dev/null; then
+        echo -e "${CYAN}Installing dos2unix...${RESET}"
+        install_package "dos2unix"
+    fi
+}
+
+# Function to install Nginx
+install_nginx() {
+    if ! command -v nginx &> /dev/null; then
+        echo -e "${CYAN}Installing Nginx...${RESET}"
+        install_package "nginx"
+        sudo systemctl enable nginx && sudo systemctl start nginx
+    else
+        echo -e "${GREEN}Nginx is already installed.${RESET}"
+    fi
+}
+
+# Install necessary tools and proceed to correct installation file
+install_dos2unix
+clear
+
+# Check for OS and run respective install script
+if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+    echo -e "${CYAN}Proceeding to Linux installation...${RESET}"
+    bash install_linux.sh
+elif [[ "$OSTYPE" == "msys" ]]; then
+    echo -e "${CYAN}Proceeding to Windows installation...${RESET}"
+    bash install_windows.sh
+else
+    echo -e "${RED}Unsupported OS. Exiting.${RESET}"
+    exit 1
+fi
