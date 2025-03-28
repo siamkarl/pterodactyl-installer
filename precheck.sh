@@ -46,10 +46,10 @@ is_windows() {
 run_installation() {
     if is_linux; then
         echo "Linux detected. Running install_linux.sh..."
-        ./install_linux.sh
+        bash install_linux.sh
     elif is_windows; then
         echo "Windows (WSL) detected. Running install_windows.sh..."
-        ./install_windows.sh
+        bash install_windows.sh
     else
         echo "Unsupported operating system. Exiting."
         exit 1
