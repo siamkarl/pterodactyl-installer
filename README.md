@@ -47,7 +47,6 @@ This script provides an easy way to install and manage the **Pterodactyl Panel**
 The script offers the following options:
 1. **Install Pterodactyl Panel**: Installs the latest version of the Pterodactyl Panel.
 2. **Install Wings Daemon**: Installs the Wings daemon.
-3. **Update everything**: Updates both the Pterodactyl Panel and Wings to their latest versions.
 4. **Exit**: Exits the script.
 
 ### Troubleshooting
