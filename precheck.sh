@@ -1,48 +1,82 @@
 #!/bin/bash
 
-# ANSI escape sequences for colors
-RESET="\033[0m"
-GREEN="\033[32m"
-RED="\033[31m"
-CYAN="\033[36m"
-YELLOW="\033[33m"
+# Remove Windows-style line endings (CRLF -> LF)
+sed -i 's/\r//' "$0"
 
-# Function to install dos2unix if not installed
+# Check for necessary utilities
 install_dos2unix() {
     if ! command -v dos2unix &> /dev/null; then
-        echo -e "${CYAN}Installing dos2unix...${RESET}"
-        if [ -x "$(command -v apt)" ]; then
-            sudo apt update && sudo apt install -y dos2unix
-        elif [ -x "$(command -v dnf)" ]; then
-            sudo dnf install -y dos2unix
-        elif [ -x "$(command -v yum)" ]; then
-            sudo yum install -y dos2unix
-        else
-            echo -e "${RED}No compatible package manager found. Please install dos2unix manually.${RESET}"
-            exit 1
-        fi
+        echo "dos2unix is not installed. Installing dos2unix..."
+        sudo apt update && sudo apt install -y dos2unix
     else
-        echo -e "${GREEN}dos2unix is already installed.${RESET}"
+        echo "dos2unix is already installed."
     fi
 }
 
-# Check if we are in WSL (Windows Subsystem for Linux)
+# Check for WSL (Windows Subsystem for Linux)
 is_wsl() {
-    if grep -qEi "(microsoft|WSL)" /proc/version &> /dev/null; then
-        return 0  # We are in WSL
+    if grep -qE "(Microsoft|WSL)" /proc/version; then
+        echo "Running inside WSL."
+        return 0
     else
-        return 1  # Not in WSL
+        echo "Not running inside WSL."
+        return 1
     fi
 }
 
-# Run the dos2unix installation check
-install_dos2unix
+# Check for Linux environment and Ubuntu compatibility
+is_linux_ubuntu() {
+    if [[ "$(uname)" == "Linux" ]] && grep -q "Ubuntu" /etc/os-release; then
+        echo "Linux with Ubuntu detected."
+        return 0
+    else
+        echo "Not Ubuntu. This script supports Ubuntu-based systems."
+        return 1
+    fi
+}
 
-# Check the platform and proceed accordingly
-if is_wsl; then
-    echo -e "${CYAN}You are in WSL, preparing for Linux installation...${RESET}"
-    bash install_linux.sh
-else
-    echo -e "${CYAN}You are on Windows, preparing for Windows installation...${RESET}"
-    bash install_windows.sh
-fi
+# Install essential utilities if not installed
+install_essential_tools() {
+    echo "Checking for essential tools..."
+
+    # Update apt package index
+    sudo apt update -y
+
+    # Install necessary tools
+    essential_tools=("curl" "tar" "unzip" "git")
+    for tool in "${essential_tools[@]}"; do
+        if ! command -v $tool &> /dev/null; then
+            echo "$tool is not installed. Installing..."
+            sudo apt install -y $tool
+        else
+            echo "$tool is already installed."
+        fi
+    done
+}
+
+# Main precheck logic
+precheck() {
+    echo "Running precheck for the server..."
+
+    # Ensure dos2unix is installed
+    install_dos2unix
+
+    # Check if running in WSL (skip Linux checks if in WSL)
+    if is_wsl; then
+        install_essential_tools
+        return
+    fi
+
+    # Check if Ubuntu-based Linux system is running
+    if is_linux_ubuntu; then
+        install_essential_tools
+        return
+    else
+        echo "This script only supports Ubuntu-based Linux systems."
+        exit 1
+    fi
+}
+
+# Execute precheck
+precheck
+
