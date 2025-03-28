@@ -1,56 +1,70 @@
 #!/bin/bash
 
-# Check for WSL installation
-if ! wsl --list --verbose &> /dev/null; then
-    echo "WSL is not installed. Installing WSL..."
-    powershell.exe -Command "wsl --install"
+# Function to check if we are running under WSL
+is_wsl() {
+    if grep -qEi "(microsoft|WSL)" /proc/version &> /dev/null; then
+        return 0  # Return true if in WSL
+    else
+        return 1  # Return false if not in WSL
+    fi
+}
+
+# Function to detect the OS and set the package manager accordingly
+detect_package_manager() {
+    if command -v apt &> /dev/null; then
+        PACKAGE_MANAGER="apt"
+    elif command -v dnf &> /dev/null; then
+        PACKAGE_MANAGER="dnf"
+    elif command -v yum &> /dev/null; then
+        PACKAGE_MANAGER="yum"
+    else
+        echo "Unsupported package manager. Exiting."
+        exit 1
+    fi
+}
+
+# Function to install packages using the appropriate package manager
+install_package() {
+    PACKAGE=$1
+    if [ "$PACKAGE_MANAGER" == "apt" ]; then
+        sudo apt update && sudo apt install -y "$PACKAGE"
+    elif [ "$PACKAGE_MANAGER" == "dnf" ]; then
+        sudo dnf install -y "$PACKAGE"
+    elif [ "$PACKAGE_MANAGER" == "yum" ]; then
+        sudo yum install -y "$PACKAGE"
+    fi
+}
+
+# If already in WSL, start installation
+if is_wsl; then
+    echo "You are in WSL, starting installation..."
+else
+    echo "Not in WSL. Please run this script inside WSL."
     exit 1
 fi
 
-# Install Ubuntu if not already installed
-if ! wsl --list --quiet | grep -q "Ubuntu"; then
-    echo "Ubuntu is not installed. Installing Ubuntu..."
-    powershell.exe -Command "wsl --install -d Ubuntu"
-    exit 1
-fi
+# Check for Ubuntu or any other Linux version and use respective package manager
+detect_package_manager
 
-# Run the installation within WSL (Ubuntu)
-wsl << 'EOF'
-# Check if the operating system is Ubuntu (since we're using Ubuntu on WSL)
-OS_ID=$(grep -oP '(?<=^ID=).+' /etc/os-release | tr -d '"')
-
-if [[ "$OS_ID" != "ubuntu" ]]; then
-    echo "This script only supports Ubuntu."
-    exit 1
-fi
-
-echo "Select an option:"
-echo "1) Install Pterodactyl Panel"
-echo "2) Install Wings"
-echo "3) Update everything to the latest version"
-echo "4) Exit"
-read -p "Your choice: " choice
-
-CLOUDFLARE_API_KEY="your_cloudflare_api_key"
-CLOUDFLARE_EMAIL="your_cloudflare_email"
-ZONE_ID="your_zone_id"
-DOMAIN="yourdomain.com"
-
+# Function to install Nginx
 install_nginx() {
     if ! command -v nginx &> /dev/null; then
         echo "Installing Nginx..."
-        sudo apt update && sudo apt install -y nginx
+        install_package "nginx"
         sudo systemctl enable nginx && sudo systemctl start nginx
     else
         echo "Nginx is already installed."
     fi
 }
 
+# Function to generate SSL using Certbot
 generate_ssl() {
-    sudo apt install -y certbot python3-certbot-nginx
+    install_package "certbot"
+    install_package "python3-certbot-nginx"
     sudo certbot --nginx --agree-tos --redirect --email $CLOUDFLARE_EMAIL -d panel.$DOMAIN -d wings.$DOMAIN
 }
 
+# Function to create Cloudflare DNS record
 create_cloudflare_dns() {
     local subdomain=$1
     local ip=$(curl -s http://checkip.amazonaws.com)
@@ -61,11 +75,29 @@ create_cloudflare_dns() {
          --data '{"type":"A","name":"'$subdomain.$DOMAIN'","content":"'$ip'","ttl":120,"proxied":true}'
 }
 
+# Function to install Pterodactyl Panel
 install_panel() {
     install_nginx
     echo "Installing Pterodactyl Panel..."
     sudo apt update && sudo apt upgrade -y
-    sudo apt install -y mariadb-server unzip curl tar composer redis-server php php-cli php-mbstring php-xml php-bcmath php-curl php-zip php-gd php-fpm php-tokenizer php-mysql
+    install_package "mariadb-server"
+    install_package "unzip"
+    install_package "curl"
+    install_package "tar"
+    install_package "composer"
+    install_package "redis-server"
+    install_package "php"
+    install_package "php-cli"
+    install_package "php-mbstring"
+    install_package "php-xml"
+    install_package "php-bcmath"
+    install_package "php-curl"
+    install_package "php-zip"
+    install_package "php-gd"
+    install_package "php-fpm"
+    install_package "php-tokenizer"
+    install_package "php-mysql"
+
     curl -Lo /var/www/pterodactyl/panel.tar.gz https://github.com/pterodactyl/panel/releases/latest/download/panel.tar.gz
     mkdir -p /var/www/pterodactyl && cd /var/www/pterodactyl
     tar -xzvf panel.tar.gz
@@ -74,11 +106,13 @@ install_panel() {
     chown -R www-data:www-data /var/www/pterodactyl
     composer install --no-dev --optimize-autoloader
     php artisan key:generate --force
+
     echo "Configure the database:"
     read -p "Database user: " db_user
     read -p "Database password: " db_pass
     read -p "Database name: " db_name
     mysql -u root -e "CREATE DATABASE $db_name; CREATE USER '$db_user'@'localhost' IDENTIFIED BY '$db_pass'; GRANT ALL PRIVILEGES ON $db_name.* TO '$db_user'@'localhost'; FLUSH PRIVILEGES;"
+
     php artisan migrate --force
     php artisan db:seed --force
     php artisan storage:link
@@ -88,11 +122,18 @@ install_panel() {
     sudo systemctl restart nginx
 }
 
+# Function to install Wings
 install_wings() {
     install_nginx
     echo "Installing Wings..."
     sudo apt update && sudo apt upgrade -y
-    sudo apt install -y curl tar unzip git redis-server docker.io
+    install_package "curl"
+    install_package "tar"
+    install_package "unzip"
+    install_package "git"
+    install_package "redis-server"
+    install_package "docker.io"
+    
     systemctl enable --now docker
     curl -Lo /usr/local/bin/wings https://github.com/pterodactyl/wings/releases/latest/download/wings_linux_amd64
     chmod +x /usr/local/bin/wings
@@ -101,6 +142,7 @@ install_wings() {
     echo "Wings is installed and SSL is configured!"
 }
 
+# Function to update all
 update_all() {
     echo "Updating everything to the latest version..."
     sudo apt update && sudo apt upgrade -y
@@ -117,6 +159,14 @@ update_all() {
     systemctl restart wings
     echo "Wings is updated!"
 }
+
+# Main menu
+echo "Select an option:"
+echo "1) Install Pterodactyl Panel"
+echo "2) Install Wings"
+echo "3) Update everything to the latest version"
+echo "4) Exit"
+read -p "Your choice: " choice
 
 case $choice in
     1)
@@ -136,4 +186,3 @@ case $choice in
         echo "Invalid choice, please try again."
         ;;
 esac
-EOF
