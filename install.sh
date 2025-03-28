@@ -1,11 +1,31 @@
 #!/bin/bash
 
+# ANSI escape sequences for colors
+RESET="\033[0m"
+BOLD="\033[1m"
+RED="\033[31m"
+GREEN="\033[32m"
+YELLOW="\033[33m"
+BLUE="\033[34m"
+CYAN="\033[36m"
+WHITE="\033[97m"
+
 # Function to check if we are running under WSL
 is_wsl() {
     if grep -qEi "(microsoft|WSL)" /proc/version &> /dev/null; then
         return 0  # Return true if in WSL
     else
         return 1  # Return false if not in WSL
+    fi
+}
+
+# Function to install dos2unix if not already installed
+install_dos2unix() {
+    if ! command -v dos2unix &> /dev/null; then
+        echo -e "${CYAN}Installing dos2unix...${RESET}"
+        sudo apt update && sudo apt install -y dos2unix
+    else
+        echo -e "${GREEN}dos2unix is already installed.${RESET}"
     fi
 }
 
@@ -18,7 +38,7 @@ detect_package_manager() {
     elif command -v yum &> /dev/null; then
         PACKAGE_MANAGER="yum"
     else
-        echo "Unsupported package manager. Exiting."
+        echo -e "${RED}Unsupported package manager. Exiting.${RESET}"
         exit 1
     fi
 }
@@ -37,23 +57,24 @@ install_package() {
 
 # If already in WSL, start installation
 if is_wsl; then
-    echo "You are in WSL, starting installation..."
+    echo -e "${CYAN}You are in WSL, starting installation...${RESET}"
+    install_dos2unix
 else
-    echo "Not in WSL. Please run this script inside WSL."
+    echo -e "${RED}Not in WSL. Please run this script inside WSL.${RESET}"
     exit 1
 fi
 
 # Check for Ubuntu or any other Linux version and use respective package manager
 detect_package_manager
 
-# Function to install Nginx
+# Function to install Nginx (no Apache2 installation)
 install_nginx() {
     if ! command -v nginx &> /dev/null; then
-        echo "Installing Nginx..."
+        echo -e "${CYAN}Installing Nginx...${RESET}"
         install_package "nginx"
         sudo systemctl enable nginx && sudo systemctl start nginx
     else
-        echo "Nginx is already installed."
+        echo -e "${GREEN}Nginx is already installed.${RESET}"
     fi
 }
 
@@ -75,10 +96,16 @@ create_cloudflare_dns() {
          --data '{"type":"A","name":"'$subdomain.$DOMAIN'","content":"'$ip'","ttl":120,"proxied":true}'
 }
 
+# Function to generate a random password
+generate_random_password() {
+    # Generate a random password with 16 characters
+    echo $(openssl rand -base64 16)
+}
+
 # Function to install Pterodactyl Panel
 install_panel() {
     install_nginx
-    echo "Installing Pterodactyl Panel..."
+    echo -e "${CYAN}Installing Pterodactyl Panel...${RESET}"
     sudo apt update && sudo apt upgrade -y
     install_package "mariadb-server"
     install_package "unzip"
@@ -107,25 +134,32 @@ install_panel() {
     composer install --no-dev --optimize-autoloader
     php artisan key:generate --force
 
-    echo "Configure the database:"
-    read -p "Database user: " db_user
-    read -p "Database password: " db_pass
-    read -p "Database name: " db_name
-    mysql -u root -e "CREATE DATABASE $db_name; CREATE USER '$db_user'@'localhost' IDENTIFIED BY '$db_pass'; GRANT ALL PRIVILEGES ON $db_name.* TO '$db_user'@'localhost'; FLUSH PRIVILEGES;"
+    echo -e "${CYAN}Generating random database password for user 'pterodactyl'...${RESET}"
+    DB_PASSWORD=$(generate_random_password)
+
+    echo -e "${YELLOW}Configuring the database...${RESET}"
+    DB_USER="pterodactyl"
+    DB_NAME="panel"
+    
+    mysql -u root -e "CREATE DATABASE $DB_NAME; CREATE USER '$DB_USER'@'localhost' IDENTIFIED BY '$DB_PASSWORD'; GRANT ALL PRIVILEGES ON $DB_NAME.* TO '$DB_USER'@'localhost'; FLUSH PRIVILEGES;"
+
+    echo -e "${GREEN}Database user: $DB_USER"
+    echo -e "${GREEN}Database password: $DB_PASSWORD"
+    echo -e "${GREEN}Database name: $DB_NAME${RESET}"
 
     php artisan migrate --force
     php artisan db:seed --force
     php artisan storage:link
     create_cloudflare_dns "panel"
     generate_ssl
-    echo "Panel is installed and SSL is configured!"
+    echo -e "${GREEN}Panel is installed and SSL is configured!${RESET}"
     sudo systemctl restart nginx
 }
 
 # Function to install Wings
 install_wings() {
     install_nginx
-    echo "Installing Wings..."
+    echo -e "${CYAN}Installing Wings...${RESET}"
     sudo apt update && sudo apt upgrade -y
     install_package "curl"
     install_package "tar"
@@ -139,12 +173,12 @@ install_wings() {
     chmod +x /usr/local/bin/wings
     create_cloudflare_dns "wings"
     generate_ssl
-    echo "Wings is installed and SSL is configured!"
+    echo -e "${GREEN}Wings is installed and SSL is configured!${RESET}"
 }
 
 # Function to update all
 update_all() {
-    echo "Updating everything to the latest version..."
+    echo -e "${CYAN}Updating everything to the latest version...${RESET}"
     sudo apt update && sudo apt upgrade -y
     cd /var/www/pterodactyl && php artisan down
     curl -Lo /var/www/pterodactyl/panel.tar.gz https://github.com/pterodactyl/panel/releases/latest/download/panel.tar.gz
@@ -152,21 +186,24 @@ update_all() {
     composer install --no-dev --optimize-autoloader
     php artisan migrate --force
     php artisan up
-    echo "Panel is updated!"
+    echo -e "${GREEN}Panel is updated!${RESET}"
     systemctl stop wings
     curl -Lo /usr/local/bin/wings https://github.com/pterodactyl/wings/releases/latest/download/wings_linux_amd64
     chmod +x /usr/local/bin/wings
     systemctl restart wings
-    echo "Wings is updated!"
+    echo -e "${GREEN}Wings is updated!${RESET}"
 }
 
 # Main menu
-echo "Select an option:"
-echo "1) Install Pterodactyl Panel"
-echo "2) Install Wings"
-echo "3) Update everything to the latest version"
-echo "4) Exit"
-read -p "Your choice: " choice
+clear
+echo -e "${BLUE}${BOLD}Pterodactyl Installer Script${RESET}"
+echo -e "${WHITE}Select an option:${RESET}"
+echo -e "1) ${CYAN}Install Pterodactyl Panel${RESET}"
+echo -e "2) ${CYAN}Install Wings${RESET}"
+echo -e "3) ${CYAN}Update everything to the latest version${RESET}"
+echo -e "4) ${RED}Exit${RESET}"
+echo -n "Your choice: "
+read -p "" choice
 
 case $choice in
     1)
@@ -179,10 +216,11 @@ case $choice in
         update_all
         ;;
     4)
-        echo "Exiting..."
+        echo -e "${RED}Exiting...${RESET}"
         exit 0
         ;;
     *)
-        echo "Invalid choice, please try again."
+        echo -e "${RED}Invalid choice, please try again.${RESET}"
         ;;
 esac
+
