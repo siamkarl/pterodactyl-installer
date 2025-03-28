@@ -1,82 +1,60 @@
 #!/bin/bash
 
-# Remove Windows-style line endings (CRLF -> LF)
-sed -i 's/\r//' "$0"
+# Function to check if WSL is installed
+is_wsl() {
+    if grep -q "Microsoft" /proc/version; then
+        return 0  # WSL is present
+    else
+        return 1  # Not WSL
+    fi
+}
 
-# Check for necessary utilities
+# Function to install dos2unix if necessary
 install_dos2unix() {
     if ! command -v dos2unix &> /dev/null; then
-        echo "dos2unix is not installed. Installing dos2unix..."
+        echo "Installing dos2unix..."
         sudo apt update && sudo apt install -y dos2unix
     else
         echo "dos2unix is already installed."
     fi
 }
 
-# Check for WSL (Windows Subsystem for Linux)
-is_wsl() {
-    if grep -qE "(Microsoft|WSL)" /proc/version; then
-        echo "Running inside WSL."
-        return 0
-    else
-        echo "Not running inside WSL."
-        return 1
-    fi
-}
-
-# Check for Linux environment and Ubuntu compatibility
-is_linux_ubuntu() {
-    if [[ "$(uname)" == "Linux" ]] && grep -q "Ubuntu" /etc/os-release; then
-        echo "Linux with Ubuntu detected."
-        return 0
-    else
-        echo "Not Ubuntu. This script supports Ubuntu-based systems."
-        return 1
-    fi
-}
-
-# Install essential utilities if not installed
-install_essential_tools() {
-    echo "Checking for essential tools..."
-
-    # Update apt package index
-    sudo apt update -y
-
-    # Install necessary tools
-    essential_tools=("curl" "tar" "unzip" "git")
-    for tool in "${essential_tools[@]}"; do
-        if ! command -v $tool &> /dev/null; then
-            echo "$tool is not installed. Installing..."
-            sudo apt install -y $tool
-        else
-            echo "$tool is already installed."
-        fi
-    done
-}
-
-# Main precheck logic
-precheck() {
-    echo "Running precheck for the server..."
-
-    # Ensure dos2unix is installed
+# Check if dos2unix needs to be installed (for Linux)
+if ! command -v dos2unix &> /dev/null; then
     install_dos2unix
+fi
 
-    # Check if running in WSL (skip Linux checks if in WSL)
-    if is_wsl; then
-        install_essential_tools
-        return
-    fi
-
-    # Check if Ubuntu-based Linux system is running
-    if is_linux_ubuntu; then
-        install_essential_tools
-        return
+# Function to check for Linux system
+is_linux() {
+    if [[ "$(uname)" == "Linux" ]]; then
+        return 0  # It's a Linux-based system
     else
-        echo "This script only supports Ubuntu-based Linux systems."
+        return 1  # Not Linux
+    fi
+}
+
+# Function to check for Windows system (via WSL)
+is_windows() {
+    if is_wsl; then
+        return 0  # It's Windows under WSL
+    else
+        return 1  # Not Windows
+    fi
+}
+
+# Main function to decide which installation script to run
+run_installation() {
+    if is_linux; then
+        echo "Linux detected. Running install_linux.sh..."
+        ./install_linux.sh
+    elif is_windows; then
+        echo "Windows (WSL) detected. Running install_windows.sh..."
+        ./install_windows.sh
+    else
+        echo "Unsupported operating system. Exiting."
         exit 1
     fi
 }
 
-# Execute precheck
-precheck
-
+# Run the installation script based on the OS detection
+run_installation
