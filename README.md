@@ -26,7 +26,7 @@ This script provides an easy way to install and manage the **Pterodactyl Panel**
 #### On Linux (Ubuntu/Debian)
 1. Clone the repository:
    ```bash
-   git clone https://github.com/your-username/pterodactyl-installer.git
+   git clone https://github.com/siamkarl/pterodactyl-installer.git
    cd pterodactyl-installer
    ```
 2. Run the installation script:
@@ -39,7 +39,7 @@ This script provides an easy way to install and manage the **Pterodactyl Panel**
 1. Install **WSL** and a **Linux distribution** (Ubuntu or Debian) from the Microsoft Store.
 2. Clone the repository:
    ```bash
-   git clone https://github.com/your-username/pterodactyl-installer.git
+   git clone https://github.com/siamkarl/pterodactyl-installer.git
    cd pterodactyl-installer
    ```
 3. Run the installation script within WSL:
