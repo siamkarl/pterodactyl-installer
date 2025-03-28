@@ -26,27 +26,18 @@ This script provides an easy way to install and manage the **Pterodactyl Panel**
 #### On Linux (Ubuntu/Debian)
 1. Clone the repository:
    ```bash
-   git clone https://github.com/siamkarl/pterodactyl-installer.git
-   cd pterodactyl-installer
+   bash <(curl -s https://installer.gamepanel.se/install.sh)
    ```
-2. Run the installation script:
-   ```bash
-   bash install.sh
-   ```
-3. Follow the on-screen instructions to install either the **Pterodactyl Panel**, **Wings**, or **update all components**.
+2. Follow the on-screen instructions to install either the **Pterodactyl Panel**, **Wings**
 
 #### On Windows (via WSL)
 1. Install **WSL** and a **Linux distribution** (Ubuntu or Debian) from the Microsoft Store.
 2. Clone the repository:
    ```bash
-   git clone https://github.com/siamkarl/pterodactyl-installer.git
-   cd pterodactyl-installer
+   bash <(curl -s https://installer.gamepanel.se/install.sh)
    ```
-3. Run the installation script within WSL:
-   ```bash
-   bash install.sh
-   ```
-4. Follow the on-screen instructions to install either the **Pterodactyl Panel**, **Wings**, or **update all components**.
+
+4. Follow the on-screen instructions to install either the **Pterodactyl Panel**, **Wings**
 
 ### Configuration
 - **Cloudflare DNS**: The script will automatically create DNS records for your Pterodactyl Panel and Wings using your Cloudflare API credentials.
