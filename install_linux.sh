@@ -74,7 +74,7 @@ install_panel() {
     
     echo -e "${YELLOW}Configuring the database...${RESET}"
     mysql -u root -e "CREATE DATABASE $DB_NAME; CREATE USER '$DB_USER'@'localhost' IDENTIFIED BY '$DB_PASSWORD'; GRANT ALL PRIVILEGES ON $DB_NAME.* TO '$DB_USER'@'localhost'; FLUSH PRIVILEGES;"
-    
+
     echo -e "${GREEN}Database user: $DB_USER"
     echo -e "${GREEN}Database password: $DB_PASSWORD"
     echo -e "${GREEN}Database name: $DB_NAME${RESET}"
@@ -98,6 +98,34 @@ install_panel() {
     sudo systemctl restart nginx
 }
 
+# Function to install Wings
+install_wings() {
+    echo -e "${CYAN}Installing Wings...${RESET}"
+    
+    # Install required dependencies for Wings
+    echo -e "${YELLOW}Installing required packages for Wings...${RESET}"
+    install_package "curl"
+    install_package "tar"
+    install_package "unzip"
+    install_package "git"
+    install_package "redis-server"
+    install_package "docker.io"
+    
+    # Enable and start Docker service
+    echo -e "${CYAN}Enabling and starting Docker...${RESET}"
+    systemctl enable --now docker
+    
+    # Install Wings
+    echo -e "${CYAN}Downloading Wings...${RESET}"
+    curl -Lo /usr/local/bin/wings https://github.com/pterodactyl/wings/releases/latest/download/wings_linux_amd64
+    chmod +x /usr/local/bin/wings
+
+    echo -e "${GREEN}Wings installed successfully!${RESET}"
+
+    # Restart Nginx (just in case)
+    sudo systemctl restart nginx
+}
+
 # Main script execution
 clear
 echo -e "${CYAN}Starting Linux installation...${RESET}"
@@ -105,5 +133,27 @@ echo -e "${CYAN}Starting Linux installation...${RESET}"
 # Detect package manager
 detect_package_manager
 
-# Install the panel
-install_panel
+# Show options to the user
+echo -e "${CYAN}What would you like to install?${RESET}"
+echo "1) Install Pterodactyl Panel"
+echo "2) Install Wings"
+echo "3) Exit"
+read -p "Your choice: " choice
+
+# Install based on user input
+case $choice in
+    1)
+        install_panel
+        ;;
+    2)
+        install_wings
+        ;;
+    3)
+        echo -e "${RED}Exiting...${RESET}"
+        exit 0
+        ;;
+    *)
+        echo -e "${RED}Invalid choice. Exiting.${RESET}"
+        exit 1
+        ;;
+esac
