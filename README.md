@@ -9,7 +9,6 @@ This script provides an easy way to install and manage the **Pterodactyl Panel**
   - **Pterodactyl Panel** installation.
   - **Wings Daemon** installation.
   - **SSL certificates** via Certbot for secure communication.
-  - **Cloudflare DNS records** creation for both Pterodactyl Panel and Wings subdomains.
   - **Nginx** installation and configuration.
 - **Version updates**: Option to automatically update both the Pterodactyl Panel and Wings daemon to their latest versions.
 
@@ -40,7 +39,6 @@ This script provides an easy way to install and manage the **Pterodactyl Panel**
 4. Follow the on-screen instructions to install either the **Pterodactyl Panel**, **Wings**
 
 ### Configuration
-- **Cloudflare DNS**: The script will automatically create DNS records for your Pterodactyl Panel and Wings using your Cloudflare API credentials.
 - **SSL Certificates**: Certbot will be used to generate and configure SSL certificates for the domains/subdomains `panel.yourdomain.com` and `wings.yourdomain.com`.
 
 ### Options
