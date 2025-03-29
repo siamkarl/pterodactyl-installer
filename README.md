@@ -1,7 +1,7 @@
 
 # Pterodactyl Installer for Linux and Windows (via WSL)
 
-This script provides an easy way to install and manage the **Pterodactyl Panel** and **Wings** daemon on both **Linux** (Ubuntu/Debian) and **Windows** (via **WSL** – Windows Subsystem for Linux). It supports the automatic setup of necessary software, Nginx, SSL certificates, Cloudflare DNS, and more.
+This script provides an easy way to install and manage the **Pterodactyl Panel** and **Wings** daemon on both **Linux** (Ubuntu/Debian) and **Windows** (via **WSL** – Windows Subsystem for Linux). It supports the automatic setup of necessary software, Nginx, SSL certificates, and more.
 
 ### Features
 - **Cross-platform support**: Automatically detects whether it’s running on Linux or Windows (via WSL).
