@@ -86,6 +86,8 @@ configure_nginx_with_ssl() {
     
     # Replace the domain placeholder with the actual domain
     sudo sed -i "s/<domain>/$PANEL_DOMAIN/g" /etc/nginx/sites-available/pterodactyl-panel
+	
+	sudo sed -i "s|APP_URL=.*|APP_URL=https://$panel_domain|" /var/www/pterodactyl/.env
     
     # Obtain SSL certificates using Certbot
     sudo certbot --nginx -d $PANEL_DOMAIN --agree-tos --no-eff-email --email your-email@example.com
@@ -120,7 +122,7 @@ install_panel() {
     install_package "tar"
     install_package "composer"
     install_package "redis-server"
-    
+
     # Remove Apache2 if it is installed
     if command -v apache2 &> /dev/null; then
         echo -e "${RED}Apache2 found. Removing Apache2...${RESET}"
@@ -129,39 +131,58 @@ install_panel() {
         sudo apt-get remove -y apache2 apache2-utils apache2.2-bin apache2-common
         echo -e "${GREEN}Apache2 removed successfully!${RESET}"
     fi
-    
-    # Database setup (using random password)
-    DB_PASSWORD=$(openssl rand -base64 16)
+
+    # Database setup (checking if it already exists)
+    DB_PASSWORD=$(openssl rand -base64 16 | tr -dc 'A-Za-z0-9')
     DB_USER="pterodactyl"
     DB_NAME="panel"
-    
-    echo -e "${YELLOW}Configuring the database...${RESET}"
-    mysql -u root -e "CREATE DATABASE $DB_NAME; CREATE USER '$DB_USER'@'localhost' IDENTIFIED BY '$DB_PASSWORD'; GRANT ALL PRIVILEGES ON $DB_NAME.* TO '$DB_USER'@'localhost'; FLUSH PRIVILEGES;"
 
-    echo -e "${GREEN}Database user: $DB_USER"
-    echo -e "${GREEN}Database password: $DB_PASSWORD"
-    echo -e "${GREEN}Database name: $DB_NAME${RESET}"
-    
-    # Continue the installation (Pterodactyl specific)
+    DB_EXISTS=$(mysql -u root -sse "SELECT COUNT(*) FROM information_schema.schemata WHERE schema_name='$DB_NAME';")
+
+    if [ "$DB_EXISTS" -eq 1 ]; then
+        echo -e "${YELLOW}The database $DB_NAME already exists. Updating the password...${RESET}"
+        mysql -u root -e "ALTER USER '$DB_USER'@'localhost' IDENTIFIED BY '$DB_PASSWORD'; FLUSH PRIVILEGES;"
+    else
+        echo -e "${YELLOW}Creating a new database and user...${RESET}"
+        mysql -u root -e "CREATE DATABASE $DB_NAME; CREATE USER '$DB_USER'@'localhost' IDENTIFIED BY '$DB_PASSWORD'; GRANT ALL PRIVILEGES ON $DB_NAME.* TO '$DB_USER'@'localhost'; FLUSH PRIVILEGES;"
+    fi
+
+    # Download and set up Pterodactyl Panel
     echo -e "${CYAN}Downloading Pterodactyl Panel...${RESET}"
+    sudo curl -sS https://getcomposer.org/installer | php
+    sudo mv composer.phar /usr/local/bin/composer
     curl -Lo /var/www/pterodactyl/panel.tar.gz https://github.com/pterodactyl/panel/releases/latest/download/panel.tar.gz
     mkdir -p /var/www/pterodactyl && cd /var/www/pterodactyl
     tar -xzvf panel.tar.gz
     cp .env.example .env
+	
     chmod -R 755 /var/www/pterodactyl
     chown -R www-data:www-data /var/www/pterodactyl
-    
-    # Run composer with no-interaction flag to skip manual confirmation
+    sudo sed -i "s/DB_PASSWORD=.*/DB_PASSWORD=$DB_PASSWORD/" /var/www/pterodactyl/.env
+    # Install dependencies and configure panel
     composer install --no-dev --optimize-autoloader --no-interaction
     php artisan key:generate --force
     php artisan migrate --force
     php artisan db:seed --force
     php artisan storage:link
-    echo -e "${GREEN}Pterodactyl Panel installed!${RESET}"
-    
+
+    echo -e "${GREEN}Pterodactyl Panel installed successfully!${RESET}"
+
     # Restart Nginx
     sudo systemctl restart nginx
+
+    # Ask if the user wants to configure SSL
+    echo -e "${CYAN}Do you want to configure SSL for the Pterodactyl panel? (y/n):${RESET}"
+    read -p "Your choice: " enable_ssl
+    if [[ "$enable_ssl" == "y" || "$enable_ssl" == "Y" ]]; then
+        read -p "Enter the domain for Pterodactyl Panel (e.g., panel.yourdomain.com): " panel_domain
+        install_certbot
+        configure_nginx_with_ssl "$panel_domain"
+    else
+        echo -e "${YELLOW}Skipping SSL configuration. You can configure it later using option 8 in the menu.${RESET}"
+    fi
 }
+
 install_wings() {
     echo -e "${CYAN}Installing Wings...${RESET}"
     
